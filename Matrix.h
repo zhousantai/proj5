@@ -11,6 +11,7 @@
 #include "cassert"
 #include "cmath"
 #include "cfloat"
+#include "string.h"
 
 using namespace std;
 
@@ -33,7 +34,7 @@ public:
         return s.c_str();
     }
 
-   // ~myExp() throw() {};
+    // ~myExp() throw() {};
 };
 
 template<typename T_>
@@ -49,16 +50,20 @@ class mat {
 public:
     //mat(const ssize_t row,const ssize_t col,const ssize_t roi_x,const ssize_t roi_y,const ssize_t channel,T_* data= nullptr)
     mat(const ssize_t row, const ssize_t col, const ssize_t channel = 1, T_ *data = nullptr) {
-        if (row <= 0 || col <= 0 || roi_s < 0 || roi_p < 0 || channel < 0 )
+        if (row <= 0 || col <= 0 || roi_s < 0 || roi_p < 0 || channel < 0)
             throw myExp("Invalid input");
         try {
             this->row = row;
             this->col = col;
-            if (!data)this->data = (T_ *) malloc(row * col * sizeof(T_) * channel);
+            if (!data) {
+                this->data = new T_[row * col * sizeof(T_) * channel];
+                memset(this->data, 0, sizeof(data));
+            } else this->data = data;
             this->ref = new int;
-            *ref++;
+            *(this->ref) = 1;
             this->roi_s = col;
             this->roi_p = 0;
+            this->channel = channel;
         }
         catch (bad_alloc &ba) {
             throw ba;
@@ -68,21 +73,21 @@ public:
         }
     }
 
-    mat(const mat<T_> &m,const size_t roi_x, const size_t roi_y,const size_t row, const size_t col) {
-        if (row <= 0 || col <= 0 || roi_x < 0 || roi_y < 0 || channel < 0 )
+    mat(const mat<T_> &m, const size_t roi_x, const size_t roi_y, const size_t row, const size_t col) {
+        if (row <= 0 || col <= 0 || roi_x < 0 || roi_y < 0 || channel < 0)
             throw myExp("Invalid input");
         this->row = row;
         this->col = col;
         this->roi_p = (roi_x) * m.col + roi_y;
         this->roi_s = m.col;
         this->ref = m.ref;
-        *ref++;
-        this->data = data;
+        (*ref)++;
+        this->data = m.data;
     }
 
 
     mat(const mat<T_> &m) {
-        if (row <= 0 || col <= 0 || roi_s < 0 || roi_p < 0 || channel < 0 )
+        if (row <= 0 || col <= 0 || roi_s < 0 || roi_p < 0 || channel < 0)
             throw myExp("Invalid input");
         this->row = m.row;
         this->col = m.col;
@@ -101,15 +106,16 @@ public:
         this->col = m.col;
         this->roi_p = m.roi_p;
         this->roi_s = m.roi_s;
-        *this->ref++;
-        if (this->ref == 0) {
+        *(this->ref)++;
+        if (*(this->ref) == 0) {
             delete[]this->data;
             delete this->data;
         }
-        this->ref = (int *) malloc(sizeof(int));
-        *this->ref = 0;
+        this->ref = new int;
+        *(this->ref) = 0;
         try {
-            this->data == (T_ *) malloc(m.row * m.col * sizeof(T_) * channel);
+            this->data == new T_[m.row * m.col * sizeof(T_) * channel];
+            memset(this->data,0,sizeof this->data);
         }
         catch (bad_alloc &ba) {
             throw ba;
@@ -117,7 +123,7 @@ public:
         for (size_t i = 0; i < m.channel; ++i) {
             for (size_t j = 0; j < m.row; ++j) {
                 for (size_t k = 0; k < m.col; ++k) {
-                    this->data = m.data[roi_p+k + j * roi_s + i * m.row * m.col];
+                    this->data = m.data[k + j * col + i * m.row * m.col];
                 }
             }
         }
@@ -132,14 +138,15 @@ public:
         this->col = m.col;
         this->roi_p = m.roi_p;
         this->roi_s = m.roi_s;
-        *this->ref--;
-        if (this->ref == 0) {
-            delete[]this->data;
-            delete this->data;
+        //(*this->ref)--;
+        if (this->ref != NULL && *(this->ref) == 0) {
+            free(this->ref);
+            this->ref = NULL;
+            free(this->data);
         }
         this->ref = m.ref;
         assert(this->ref == m.ref);
-        *(this->ref)++;
+        (*this->ref)++;
         this->data = m.data;
         return *this;
     };//默认为soft copy
@@ -159,11 +166,9 @@ public:
     };
 
     ~mat() {
-        *(this->ref)--;
-        if (*(this->ref)) {
-            delete this->ref;
-            delete[]this->data;
-            delete this->data;
+        if (this->ref != NULL && --(*this->ref)) {
+            free(this->ref);
+            free(this->data);
         }
     }
 
@@ -181,9 +186,13 @@ public:
 
     bool check(const mat &mat1) const {
         try {
-            if (!this->check() || !mat1.check())return false;
-            else if (this->row != mat1.row || this->col != mat1.col || this->channel != mat1.channel)return false;
-            else return true;
+            if (!this->check() || !mat1.check()) return false;
+            if (this->row != mat1.row || this->col != mat1.col || this->channel != mat1.channel) {
+                cout << this->row << endl << mat1.row;
+                cout << this->col << endl << mat1.col;
+                cout << this->channel << endl << mat1.channel;
+                return false;
+            } else return true;
         } catch (...) { return false; }
     };
 
@@ -354,6 +363,7 @@ public:
         for (size_t i = 0; i < this->channel; ++i) {
             for (size_t j = 0; j < this->row; ++j) {
                 for (size_t k = 0; k < this->col; ++k) {
+                    ans.data[j * ans.col + k + i * (ans.row * ans.col)] = 0;
                     for (size_t l = 0; l < this->col; ++l) {
                         ans.data[j * ans.col + k + i * (ans.row * ans.col)] +=
                                 this->data[this->roi_p + j * this->roi_s + l + i * (ans.row * ans.col)] *
@@ -422,20 +432,10 @@ public:
                 }
             }
             return true;
-        }else{
-            for (int i = 0; i < this->channel; ++i) {
-                for (int j = 0; j < this->row; ++j) {
-                    for (int k = 0; k < this->col; ++k) {
-                        if ((this->data[roi_p + i * this->row * this->col + j * roi_s + k] =
-                                 m.data[roi_p + i * this->row * this->col + j * roi_s + k]) )
-                            return false;
-                    }
-                }
-            }
         }
     }
 
-    friend ostream &operator<<(ostream &o, const mat m) {
+    friend ostream &operator<<(ostream &o, const mat &m) {
         o << "the row of matrix is " << m.row << endl;
         o << "the col of matrix is " << m.col << endl;
         o << "the channel of matrix is " << m.channel << endl;
@@ -449,13 +449,14 @@ public:
                 o << endl;
             }
         }
+        return o;
     };
 
-    friend mat<T_> operator+(long double t,  mat<T_> &m) {
+    friend mat<T_> operator+(long double t, mat<T_> &m) {
         return m + t;
     };
 
-    friend mat<T_> operator-(long double t,  mat<T_> &m) {
+    friend mat<T_> operator-(long double t, mat<T_> &m) {
         return m - t;
     };
 
@@ -516,7 +517,10 @@ public:
     }
 
     void setData(T_ *data) {
-        mat::data = data;
+        this->data = data;
+        *(this->ref)--;
+        this->ref=new int;
+        *(this->ref) = 1;
     }
 
 
