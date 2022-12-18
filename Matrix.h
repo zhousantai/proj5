@@ -151,19 +151,6 @@ public:
         return *this;
     };//默认为soft copy
 
-    bool myFree() {
-        try {
-            this->ref--;
-            if (*this->ref == 0) {
-                delete this->ref;
-                delete[]this->data;
-                delete this->data;
-            }
-            return true;
-        } catch (...) {
-            return false;
-        }
-    };
 
     ~mat() {
         if (this->ref != NULL && --(*this->ref)) {

@@ -54,16 +54,20 @@ public:
 1)
 ```cpp
 mat(const ssize_t row, const ssize_t col, const ssize_t channel = 1, T_ *data = nullptr) {
-        if (row <= 0 || col <= 0 || roi_s < 0 || roi_p < 0 || channel < 0 )
+        if (row <= 0 || col <= 0 || roi_s < 0 || roi_p < 0 || channel < 0)
             throw myExp("Invalid input");
         try {
             this->row = row;
             this->col = col;
-            if (!data)this->data = (T_ *) malloc(row * col * sizeof(T_) * channel);
+            if (!data) {
+                this->data = new T_[row * col * sizeof(T_) * channel];
+                memset(this->data, 0, sizeof(data));
+            } else this->data = data;
             this->ref = new int;
-            *ref++;
+            *(this->ref) = 1;
             this->roi_s = col;
             this->roi_p = 0;
+            this->channel = channel;
         }
         catch (bad_alloc &ba) {
             throw ba;
@@ -75,22 +79,22 @@ mat(const ssize_t row, const ssize_t col, const ssize_t channel = 1, T_ *data = 
 ```
 2)
 ```cpp
-mat(const mat<T_> &m,const size_t roi_x, const size_t roi_y,const size_t row, const size_t col) {
-        if (row <= 0 || col <= 0 || roi_x < 0 || roi_y < 0 || channel < 0 )
+ mat(const mat<T_> &m, const size_t roi_x, const size_t roi_y, const size_t row, const size_t col) {
+        if (row <= 0 || col <= 0 || roi_x < 0 || roi_y < 0 || channel < 0)
             throw myExp("Invalid input");
         this->row = row;
         this->col = col;
         this->roi_p = (roi_x) * m.col + roi_y;
         this->roi_s = m.col;
         this->ref = m.ref;
-        *ref++;
-        this->data = data;
+        (*ref)++;
+        this->data = m.data;
     }
 ```
 3)
 ```cpp
 mat(const mat<T_> &m) {
-        if (row <= 0 || col <= 0 || roi_s < 0 || roi_p < 0 || channel < 0 )
+        if (row <= 0 || col <= 0 || roi_s < 0 || roi_p < 0 || channel < 0)
             throw myExp("Invalid input");
         this->row = m.row;
         this->col = m.col;
@@ -111,14 +115,15 @@ mat<T_> &operator=(const mat<T_> &m) {
         this->col = m.col;
         this->roi_p = m.roi_p;
         this->roi_s = m.roi_s;
-        *this->ref--;
-        if (this->ref == 0) {
-            delete[]this->data;
-            delete this->data;
+        //(*this->ref)--;
+        if (this->ref != NULL && *(this->ref) == 0) {
+            free(this->ref);
+            this->ref = NULL;
+            free(this->data);
         }
         this->ref = m.ref;
         assert(this->ref == m.ref);
-        *(this->ref)++;
+        (*this->ref)++;
         this->data = m.data;
         return *this;
     };//默认为soft copy
@@ -126,12 +131,10 @@ mat<T_> &operator=(const mat<T_> &m) {
 
 ### destructor
 ```cpp
-    ~mat() {
-        *(this->ref)--;
-        if (*(this->ref)) {
-            delete this->ref;
-            delete[]this->data;
-            delete this->data;
+      ~mat() {
+        if (this->ref != NULL && --(*this->ref)) {
+            free(this->ref);
+            free(this->data);
         }
     }
 ```
@@ -420,8 +423,11 @@ int main() {
    cout<<mat5<<endl;
 }
 ```
-经验证，无误！
+![截屏2022-12-18 19.16.49](../../../Library/Application Support/typora-user-images/截屏2022-12-18 19.16.49.png)
 
+![截屏2022-12-18 19.17.03](../../../Library/Application Support/typora-user-images/截屏2022-12-18 19.17.03.png)
+
+![截屏2022-12-18 19.17.10](../../../Library/Application Support/typora-user-images/截屏2022-12-18 19.17.10.png)
 
 **MY SPECIFIC CODE,SEE IN**: https://github.com/zhousantai?tab=repositories
 
